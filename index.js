@@ -94,7 +94,23 @@ addEventListener("fetch", async event => {
                     headers: filteredHeaders
                 });
 
-                const response = await fetch(targetUrl, newRequest);
+                const cacheKey = new Request(targetUrl, newRequest);
+                const cache = caches.default;
+
+                // пробуем взять из кеша
+                let response = await cache.match(cacheKey);
+
+                if (!response) {
+                    response = await fetch(targetUrl, newRequest);
+
+            // сохраняем только успешные ответы
+                    if (response.status === 200) {
+                        const newResponse = new Response(response.clone().body, response);
+                        newResponse.headers.set("Cache-Control", "public, max-age=3600"); // 1 час
+
+                        event.waitUntil(cache.put(cacheKey, newResponse.clone()));
+                    }
+                }
                 let responseHeaders = new Headers(response.headers);
                 const exposedHeaders = [];
                 const allResponseHeaders = {};
